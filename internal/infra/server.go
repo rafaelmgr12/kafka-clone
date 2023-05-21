@@ -36,13 +36,12 @@ func Start(conf Config, listen *net.TCPListener, done <-chan struct{}) {
 	for i := range consumers {
 		consumers[i].Close()
 	}
-
 }
 
 func handleCommands(path string, commands chan entity.Command) {
 	for c := range commands {
 		if err := routeCommand(c, path); err != nil {
-			log.Printf("Error routing command: %v", err)
+			log.Printf("error on routing command: %s", err)
 		}
 	}
 }
@@ -56,6 +55,7 @@ func waitForCommands(listen *net.TCPListener, commands chan entity.Command, stop
 			if softError(err) {
 				continue
 			}
+
 			log.Printf("unable to accept tcp connection: %s\n", err)
 			continue
 		}
@@ -89,14 +89,11 @@ func waitForCommands(listen *net.TCPListener, commands chan entity.Command, stop
 					log.Printf("error on json: %s\n", err)
 					continue
 				}
-
 				command.Connection = conn
 				select {
 				case <-stopCommands:
 					return
-
 				case commands <- command:
-
 				}
 			}
 		}(conn)
@@ -104,14 +101,13 @@ func waitForCommands(listen *net.TCPListener, commands chan entity.Command, stop
 }
 
 func routeCommand(c entity.Command, path string) error {
-
 	commandNames := map[int]string{
 		entity.TypeClose:   "close",
 		entity.TypeConsume: "consume",
 		entity.TypePublish: "publish",
 	}
 
-	log.Printf("received command: %s\n", commandNames[c.Type])
+	log.Printf("received command type=%s \n", commandNames[c.Type])
 	switch c.Type {
 	case entity.TypePublish:
 		var message entity.Message
@@ -135,7 +131,6 @@ func routeCommand(c entity.Command, path string) error {
 			}
 		}
 		return nil
-
 	}
 
 	return fmt.Errorf("no expected command type: %d\n", c.Type)
@@ -145,6 +140,8 @@ func softError(err error) bool {
 	if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 		return true
 	}
+
+	// @TODO improve error checking
 	return closedConnection(err)
 }
 

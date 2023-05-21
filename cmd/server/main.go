@@ -40,7 +40,7 @@ func main() {
 
 	path := os.Getenv("K_PATH")
 	if path == "" {
-		path = "./data"
+		path = "data"
 	}
 
 	w := os.Getenv("K_WORKERS")

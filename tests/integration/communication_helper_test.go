@@ -24,7 +24,7 @@ func NewCommunicationStage(t *testing.T) (*CommunicationStage, *CommunicationSta
 		messages:            make(map[string]chan entity.Message),
 		consumerConnections: make(map[string]net.Conn),
 	}
-	cleanUpFiles("./data")
+	cleanUpFiles("data")
 
 	return &stage, &stage, &stage
 }

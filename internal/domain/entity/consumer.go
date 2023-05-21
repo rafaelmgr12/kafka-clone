@@ -28,15 +28,16 @@ type MetaConsumer struct {
 }
 
 func NewConsumer(name string, conn net.Conn, topic, path string) (Consumer, error) {
-	id := fmt.Sprintf("/%s/%s", path, fileName(name, topic))
-	file, err := os.OpenFile(id, os.O_CREATE|os.O_RDWR, 0644)
+	// open consumer file
+	id := fmt.Sprintf("%s/%s", path, fileName(name, topic))
+	file, err := os.OpenFile(id, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		return Consumer{}, fmt.Errorf("cannot open consumer file: %w", err)
 	}
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		return Consumer{}, fmt.Errorf("cannot open topic file: %w", err)
+		return Consumer{}, fmt.Errorf("consumer file is corrupted: %w", err)
 	}
 
 	if len(data) == 0 {
@@ -45,10 +46,11 @@ func NewConsumer(name string, conn net.Conn, topic, path string) (Consumer, erro
 
 	var meta MetaConsumer
 	if err = json.Unmarshal(data, &meta); err != nil {
-		return Consumer{}, fmt.Errorf("cannot open topic file: %w", err)
+		return Consumer{}, fmt.Errorf("consumer file is corrupted: %w", err)
 	}
 
-	filePath := fmt.Sprint("%s/%s.topic", path, topic)
+	// open topic file
+	filePath := fmt.Sprintf("%s/%s.topic", path, topic)
 	topicFile, err := os.OpenFile(filePath, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return Consumer{}, fmt.Errorf("cannot open topic file: %w", err)
@@ -57,6 +59,7 @@ func NewConsumer(name string, conn net.Conn, topic, path string) (Consumer, erro
 	reader := bufio.NewReader(topicFile)
 	fmt.Printf("Consumer %s created with offset %d\n", id, meta.Offset)
 	for i := uint(0); i < meta.Offset; i++ {
+		// move reader to the first line that needs to be consumed: meta.Offset
 		reader.ReadLine()
 	}
 
@@ -71,7 +74,6 @@ func NewConsumer(name string, conn net.Conn, topic, path string) (Consumer, erro
 		Done:      done,
 		Conn:      conn,
 	}, err
-
 }
 
 func (c Consumer) Start() {
@@ -109,6 +111,7 @@ func (c Consumer) Start() {
 		}
 	}
 }
+
 func (c Consumer) updateMetaFile() error {
 	data, err := json.Marshal(c.Meta)
 	if err != nil {
