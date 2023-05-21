@@ -42,9 +42,9 @@ func Publish(conn net.Conn, body, topic string) error {
 
 func Consume(conn net.Conn, topic, consumerName string) (chan entity.Message, error) {
 	cmd := entity.Command{
-		Type:  entity.TypeConsume,
-		Topic: topic,
-		Body:  consumerName,
+		Type:         entity.TypeConsume,
+		Topic:        topic,
+		ConsumerName: consumerName,
 	}
 
 	messages := make(chan entity.Message)
