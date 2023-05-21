@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 					panic(err)
 				}
 				conf := infra.Config{
-					Path:    "/data",
+					Path:    "data",
 					Workers: 5,
 				}
 				infra.Start(conf, listen, serverShutDown)
