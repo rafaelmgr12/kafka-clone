@@ -33,8 +33,8 @@ func Start(conf Config, listen *net.TCPListener, done <-chan struct{}) {
 	<-done
 	close(stopCommands)
 	log.Println("closing consumers...")
-	for i := range consumers {
-		consumers[i].Close()
+	for _, consumer := range consumers {
+		consumer.Close()
 	}
 }
 
@@ -55,48 +55,44 @@ func waitForCommands(listen *net.TCPListener, commands chan entity.Command, stop
 			if softError(err) {
 				continue
 			}
-
 			log.Printf("unable to accept tcp connection: %s\n", err)
 			continue
 		}
-
 		if err := conn.SetKeepAlive(true); err != nil {
 			log.Printf("unable to set keep alive: %s\n", err)
 		}
+		go handleConnection(conn, commands, stopCommands)
+	}
+}
 
-		go func(conn net.Conn) {
-			reader := bufio.NewReader(conn)
-			for {
-				line, _, err := reader.ReadLine()
-
-				command := entity.Command{Connection: conn}
-				if err == io.EOF {
-					command.Type = entity.TypeClose
-					commands <- command
-					return
-				}
-
-				if err != nil {
-					if closedConnection(err) {
-						return
-					}
-
-					log.Printf("unable to read connection: %s\n", err)
-					continue
-				}
-
-				if err = json.Unmarshal(line, &command); err != nil {
-					log.Printf("error on json: %s\n", err)
-					continue
-				}
-				command.Connection = conn
-				select {
-				case <-stopCommands:
-					return
-				case commands <- command:
-				}
+func handleConnection(conn net.Conn, commands chan entity.Command, stopCommands chan bool) {
+	defer conn.Close()
+	reader := bufio.NewReader(conn)
+	for {
+		line, _, err := reader.ReadLine()
+		if err == io.EOF {
+			command := entity.Command{Type: entity.TypeClose, Connection: conn}
+			commands <- command
+			return
+		}
+		if err != nil {
+			if closedConnection(err) {
+				return
 			}
-		}(conn)
+			log.Printf("unable to read connection: %s\n", err)
+			continue
+		}
+		var command entity.Command
+		if err = json.Unmarshal(line, &command); err != nil {
+			log.Printf("error on json: %s\n", err)
+			continue
+		}
+		command.Connection = conn
+		select {
+		case <-stopCommands:
+			return
+		case commands <- command:
+		}
 	}
 }
 
@@ -106,8 +102,8 @@ func routeCommand(c entity.Command, path string) error {
 		entity.TypeConsume: "consume",
 		entity.TypePublish: "publish",
 	}
-
 	log.Printf("received command type=%s \n", commandNames[c.Type])
+
 	switch c.Type {
 	case entity.TypePublish:
 		var message entity.Message
@@ -124,24 +120,26 @@ func routeCommand(c entity.Command, path string) error {
 		go consumer.Start()
 		return nil
 	case entity.TypeClose:
-		for i := range consumers {
-			if consumers[i].Conn == c.Connection {
-				consumers[i].Close()
-				delete(consumers, i)
-			}
-		}
+		closeConsumer(c.Connection)
 		return nil
 	}
 
 	return fmt.Errorf("no expected command type: %d\n", c.Type)
 }
 
+func closeConsumer(conn net.Conn) {
+	for key, consumer := range consumers {
+		if consumer.Conn == conn {
+			consumer.Close()
+			delete(consumers, key)
+		}
+	}
+}
+
 func softError(err error) bool {
 	if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 		return true
 	}
-
-	// @TODO improve error checking
 	return closedConnection(err)
 }
 
