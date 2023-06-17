@@ -39,7 +39,7 @@ This repository houses a Go package that offers an implementation of Kafka clone
     * `go run cmd/server/main.go` 
 
 5. Run the client consumer:
-    * `go run cmd/cli/main.go -c -n <consumer> -t <topico>`
+    * `go run cmd/cli/main.go -c -n <consumer> -t <topic>`
 6. Run the client to publish messages:
     * `go run cmd/cli/main.go -p -t <topic> -m <message>` 
 
